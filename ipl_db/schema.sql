@@ -1057,3 +1057,114 @@ SELECT
     ) AS sr_vs_team
 FROM grouped AS g
 JOIN players AS p ON p.player_id = g.player_id;
+
+-- Advanced bowling. Rest-of-attack rates exclude this bowler. Bowling
+-- strike rate is legal balls per wicket, and average is bowler runs per
+-- wicket, so a negative sr_above_team or average_above_team means this
+-- bowler was harder to score off, or struck sooner, than teammates.
+-- The total is the batting side's scoreboard total. above_200 is above
+-- 200. 200_or_below is 200 or less.
+
+CREATE VIEW bowler_innings_context AS
+WITH attack AS (
+    SELECT
+        match_id,
+        innings_number,
+        SUM(balls) AS attack_balls,
+        SUM(runs) AS attack_runs,
+        SUM(wickets) AS attack_wickets
+    FROM bowling_innings
+    WHERE innings_number IN (1, 2)
+    GROUP BY match_id, innings_number
+)
+SELECT
+    b.player_id,
+    b.match_id,
+    b.innings_number,
+    b.balls,
+    b.runs,
+    b.wickets,
+    i.runs AS team_total,
+    a.attack_balls - b.balls AS others_balls,
+    a.attack_runs - b.runs AS others_runs,
+    a.attack_wickets - b.wickets AS others_wickets,
+    CASE WHEN i.runs > 200 THEN 'above_200' ELSE '200_or_below' END AS total_band
+FROM bowling_innings AS b
+JOIN attack AS a
+    ON a.match_id = b.match_id AND a.innings_number = b.innings_number
+JOIN innings AS i
+    ON i.match_id = b.match_id AND i.innings_number = b.innings_number
+WHERE b.innings_number IN (1, 2);
+
+CREATE VIEW bowler_advanced AS
+WITH grouped AS (
+    SELECT
+        'innings' AS axis,
+        CAST(innings_number AS TEXT) AS axis_value,
+        player_id,
+        COUNT(DISTINCT match_id) AS matches,
+        COUNT(*) AS innings,
+        SUM(balls) AS balls,
+        SUM(runs) AS runs,
+        SUM(wickets) AS wickets,
+        SUM(others_balls) AS others_balls,
+        SUM(others_runs) AS others_runs,
+        SUM(others_wickets) AS others_wickets
+    FROM bowler_innings_context
+    GROUP BY player_id, innings_number
+    UNION ALL
+    SELECT
+        'team_total',
+        total_band,
+        player_id,
+        COUNT(DISTINCT match_id),
+        COUNT(*),
+        SUM(balls),
+        SUM(runs),
+        SUM(wickets),
+        SUM(others_balls),
+        SUM(others_runs),
+        SUM(others_wickets)
+    FROM bowler_innings_context
+    GROUP BY player_id, total_band
+)
+SELECT
+    p.full_name AS player,
+    g.player_id,
+    g.axis,
+    g.axis_value,
+    g.matches,
+    g.innings,
+    g.wickets,
+    ROUND(1.0 * g.wickets / NULLIF(g.innings, 0), 2) AS wickets_per_innings,
+    g.balls,
+    g.runs,
+    ROUND(1.0 * g.balls / NULLIF(g.wickets, 0), 2) AS strike_rate,
+    ROUND(1.0 * g.runs / NULLIF(g.wickets, 0), 2) AS average,
+    g.others_balls AS team_balls,
+    g.others_runs AS team_runs,
+    g.others_wickets AS team_wickets,
+    ROUND(1.0 * g.others_balls / NULLIF(g.others_wickets, 0), 2) AS team_strike_rate,
+    ROUND(1.0 * g.others_runs / NULLIF(g.others_wickets, 0), 2) AS team_average,
+    ROUND(
+        (1.0 * g.balls / NULLIF(g.wickets, 0))
+        - (1.0 * g.others_balls / NULLIF(g.others_wickets, 0)),
+        2
+    ) AS sr_above_team,
+    ROUND(
+        (1.0 * g.runs / NULLIF(g.wickets, 0))
+        - (1.0 * g.others_runs / NULLIF(g.others_wickets, 0)),
+        2
+    ) AS average_above_team,
+    ROUND(
+        (1.0 * g.balls / NULLIF(g.wickets, 0))
+        / NULLIF(1.0 * g.others_balls / NULLIF(g.others_wickets, 0), 0),
+        2
+    ) AS sr_vs_team,
+    ROUND(
+        (1.0 * g.runs / NULLIF(g.wickets, 0))
+        / NULLIF(1.0 * g.others_runs / NULLIF(g.others_wickets, 0), 0),
+        2
+    ) AS average_vs_team
+FROM grouped AS g
+JOIN players AS p ON p.player_id = g.player_id;

@@ -71,6 +71,30 @@ def main(argv: list[str] | None = None) -> None:
         ORDER BY wickets DESC
         LIMIT ?
     """, (args.limit,))
+    _section(conn, "Bowling — first innings balls per wicket versus the rest of the attack, minimum 250 balls", """
+        SELECT player, wickets, wickets_per_innings, strike_rate, team_strike_rate, sr_above_team,
+               average, team_average, average_above_team
+        FROM bowler_advanced
+        WHERE axis = 'innings' AND axis_value = '1' AND balls >= 250
+        ORDER BY sr_above_team
+        LIMIT ?
+    """, (args.limit,))
+    _section(conn, "Bowling — second innings balls per wicket versus the rest of the attack, minimum 250 balls", """
+        SELECT player, wickets, wickets_per_innings, strike_rate, team_strike_rate, sr_above_team,
+               average, team_average, average_above_team
+        FROM bowler_advanced
+        WHERE axis = 'innings' AND axis_value = '2' AND balls >= 250
+        ORDER BY sr_above_team
+        LIMIT ?
+    """, (args.limit,))
+    _section(conn, "Bowling — wickets when the batting side scores above 200, minimum 120 balls", """
+        SELECT player, wickets, wickets_per_innings, strike_rate, average,
+               team_strike_rate, sr_above_team
+        FROM bowler_advanced
+        WHERE axis = 'team_total' AND axis_value = 'above_200' AND balls >= 120
+        ORDER BY wickets DESC
+        LIMIT ?
+    """, (args.limit,))
     _section(conn, "Phase of play — batting strike rate, minimum 200 balls", """
         SELECT player, phase, runs, balls, dismissals, strike_rate, average, boundary_percent
         FROM batter_phase_career

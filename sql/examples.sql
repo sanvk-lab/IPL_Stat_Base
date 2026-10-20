@@ -37,6 +37,27 @@ FROM batter_stats
 WHERE axis = 'opposition' AND axis_value = 'Chennai Super Kings'
 ORDER BY runs DESC;
 
+-- First-innings bowling strike rate and average against the rest of the attack.
+-- A negative sr_above_team means fewer balls per wicket than teammates.
+SELECT player, matches, innings, wickets, wickets_per_innings, strike_rate, team_strike_rate,
+       sr_above_team, sr_vs_team, average, team_average, average_above_team, average_vs_team
+FROM bowler_advanced
+WHERE axis = 'innings' AND axis_value = '1' AND balls >= 200
+ORDER BY sr_above_team;
+
+-- Same comparison while bowling second.
+SELECT player, wickets, strike_rate, team_strike_rate, sr_above_team, average, team_average, average_above_team
+FROM bowler_advanced
+WHERE axis = 'innings' AND axis_value = '2' AND balls >= 200
+ORDER BY sr_above_team;
+
+-- Strike rate, average, and wickets when the batting side's total is above 200,
+-- and when it is 200 or less.
+SELECT player, axis_value, wickets, wickets_per_innings, strike_rate, average
+FROM bowler_advanced
+WHERE axis = 'team_total' AND player = 'JJ Bumrah'
+ORDER BY axis_value;
+
 -- Career bowling: matches, wickets, balls per wicket, economy,
 -- runs per wicket, four- and five-wicket hauls, wickets per match.
 SELECT player, matches, wickets, strike_rate, economy, average,

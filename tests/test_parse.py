@@ -216,6 +216,31 @@ class ParseTests(unittest.TestCase):
                 """
             ).fetchone()
             self.assertIsNone(phase_haul["four_wicket_hauls"])
+            spell = conn.execute(
+                """
+                SELECT balls, runs, wickets, strike_rate, average, wickets_per_innings,
+                       team_balls, team_strike_rate, sr_vs_team
+                FROM bowler_advanced
+                WHERE player = 'C Bowler' AND axis = 'innings' AND axis_value = '1'
+                """
+            ).fetchone()
+            self.assertEqual(spell["balls"], 3)
+            self.assertEqual(spell["runs"], 5)
+            self.assertEqual(spell["wickets"], 1)
+            self.assertEqual(spell["strike_rate"], 3)
+            self.assertEqual(spell["average"], 5)
+            self.assertEqual(spell["wickets_per_innings"], 1)
+            self.assertEqual(spell["team_balls"], 0)
+            self.assertIsNone(spell["team_strike_rate"])
+            self.assertIsNone(spell["sr_vs_team"])
+            bowl_band = conn.execute(
+                """
+                SELECT axis_value, wickets FROM bowler_advanced
+                WHERE player = 'C Bowler' AND axis = 'team_total'
+                """
+            ).fetchone()
+            self.assertEqual(bowl_band["axis_value"], "200_or_below")
+            self.assertEqual(bowl_band["wickets"], 1)
             first = conn.execute(
                 """
                 SELECT runs, balls, strike_rate, average, team_balls, team_strike_rate,
@@ -347,6 +372,43 @@ class BuiltDatabaseTests(unittest.TestCase):
         self.assertAlmostEqual(relative[2], round(relative[0] - relative[1], 2), places=2)
         self.assertAlmostEqual(relative[3], round(relative[0] / relative[1], 2), places=2)
         self.assertAlmostEqual(relative[6], round(relative[4] - relative[5], 2), places=2)
+        bowl_split = conn.execute(
+            """
+            SELECT
+                (SELECT SUM(wickets) FROM bowler_advanced
+                  WHERE player = 'JJ Bumrah' AND axis = 'innings'),
+                (SELECT SUM(wickets) FROM bowler_advanced
+                  WHERE player = 'JJ Bumrah' AND axis = 'team_total'),
+                (SELECT SUM(b.wickets) FROM bowling_innings AS b
+                  JOIN players AS p ON p.player_id = b.player_id
+                  WHERE p.full_name = 'JJ Bumrah' AND b.innings_number IN (1, 2))
+            """
+        ).fetchone()
+        self.assertEqual(bowl_split[0], bowl_split[2])
+        self.assertEqual(bowl_split[1], bowl_split[2])
+        self.assertGreater(bowl_split[0], 0)
+        bowl_bands = {row[0] for row in conn.execute("SELECT DISTINCT total_band FROM bowler_innings_context")}
+        self.assertEqual(bowl_bands, {"above_200", "200_or_below"})
+        bowl_leaked = conn.execute(
+            """
+            SELECT COUNT(*) FROM bowler_innings_context
+            WHERE (team_total > 200 AND total_band != 'above_200')
+               OR (team_total <= 200 AND total_band != '200_or_below')
+               OR others_runs < 0 OR others_balls < 0 OR others_wickets < 0
+            """
+        ).fetchone()[0]
+        self.assertEqual(bowl_leaked, 0)
+        bowl_relative = conn.execute(
+            """
+            SELECT strike_rate, team_strike_rate, sr_above_team, sr_vs_team,
+                   average, team_average, average_above_team
+            FROM bowler_advanced
+            WHERE player = 'JJ Bumrah' AND axis = 'innings' AND axis_value = '1'
+            """
+        ).fetchone()
+        self.assertAlmostEqual(bowl_relative[2], bowl_relative[0] - bowl_relative[1], places=1)
+        self.assertAlmostEqual(bowl_relative[3], bowl_relative[0] / bowl_relative[1], places=1)
+        self.assertAlmostEqual(bowl_relative[6], bowl_relative[4] - bowl_relative[5], places=1)
 
 
 if __name__ == "__main__":

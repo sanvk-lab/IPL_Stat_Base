@@ -88,6 +88,27 @@ The team rates use the teammates' runs and balls, so a batter is not compared wi
 
 Haul columns are empty on the phase axis.
 
+### Advanced bowling
+
+`bowler_advanced` uses the same two splits, with the bowling cutoff at 200.
+
+| `axis` | `axis_value` | What it is |
+| --- | --- | --- |
+| `innings` | `1` or `2` | Bowling at the side batting first, or bowling second |
+| `team_total` | `above_200` or `200_or_below` | The batting side's scoreboard total was above 200, or 200 or less |
+
+| Column | Meaning |
+| --- | --- |
+| `strike_rate` | Legal balls per wicket. |
+| `average` | Bowler runs per wicket. |
+| `wickets` | Wickets in the split. |
+| `wickets_per_innings` | Average wickets per bowling innings. |
+| `team_strike_rate`, `team_average` | The rest of the attack in those same innings, with this bowler removed. |
+| `sr_above_team`, `average_above_team` | Bowler minus the rest of the attack. Negative means fewer balls per wicket, or fewer runs per wicket, than teammates. |
+| `sr_vs_team`, `average_vs_team` | Bowler divided by the rest of the attack. Below `1.00` is better than teammates. |
+
+Super overs are excluded. The 200 cutoff counts extras on the scoreboard. The rates do not.
+
 Axes in `batter_stats` and `bowler_stats`:
 
 | `axis` | `axis_value` |
