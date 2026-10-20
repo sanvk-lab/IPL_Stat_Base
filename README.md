@@ -1,8 +1,6 @@
 # IPL Stat Base
 
-Ball-by-ball Indian Premier League database. Every delivery carries the situation it was bowled in, and the views turn that into batting, bowling, venue, toss, and opposition summaries.
-
-The request named contextual metrics and then stopped at "1)". **Phase of play is metric 1.** Metrics 2–8 are the rest of the usual situation frame, so the same ball can also be read by chase pressure, wickets in hand, batting position, venue, toss, opposition, and season. The definitions live in the `metrics` table.
+Ball-by-ball Indian Premier League database. Batting and bowling are separate scorecards, and each scorecard is repeated on its own context axis: career, season, phase, venue, opposition, and batting position.
 
 ## Data
 
@@ -34,18 +32,69 @@ python -m ipl_db.report --sql "SELECT player, phase, strike_rate FROM batter_pha
 
 More queries are in `sql/examples.sql`.
 
-## Metrics
+## Batting
 
-| # | Metric | Where it sits |
+`batter_career` is the career line. `batter_stats` is the same line with `axis` and `axis_value`.
+
+| Column | Meaning |
+| --- | --- |
+| `matches` | Matches in the listed squad. On the batting-position axis, matches in which they batted there. On the phase axis, matches in which they faced that phase. |
+| `innings` | Innings at the crease, including an opener who did not face a ball. |
+| `runs` | Runs scored off the bat. |
+| `average` | Runs per dismissal. A not-out, including retired hurt, stays out of the denominator. |
+| `strike_rate` | Runs per 100 balls faced. Wides are not balls faced. |
+| `runs_per_innings` | Runs divided by innings, not-outs included. |
+| `fifties` | Innings of 50 to 99. |
+| `hundreds` | Innings of 100 or more. |
+| `fifties_sr_150` | Innings of 50 or more at a strike rate of 150 or higher. Hundreds are included. |
+| `fifties_sr_200` | Innings of 50 or more at a strike rate of 200 or higher. |
+
+A fifty belongs to the innings, so `fifties`, `hundreds`, `fifties_sr_150`, and `fifties_sr_200` are empty on the phase axis.
+
+## Bowling
+
+`bowler_career` is the career line. `bowler_stats` carries the same axes except batting position.
+
+| Column | Meaning |
+| --- | --- |
+| `matches` | Matches in the listed squad. On the phase axis, matches in which they bowled in that phase. |
+| `wickets` | Bowled, caught, caught and bowled, lbw, stumped, and hit wicket. |
+| `strike_rate` | Legal balls per wicket. |
+| `economy` | Bowler runs per over. Byes, leg-byes, and penalty runs are excluded. |
+| `average` | Bowler runs per wicket. |
+| `four_wicket_hauls` | Innings with exactly four wickets. |
+| `five_wicket_hauls` | Innings with five or more wickets. A six-wicket innings counts here, not also as a four-wicket haul. |
+| `wickets_per_match` | Wickets divided by `matches`. |
+
+Haul columns are empty on the phase axis.
+
+Axes in `batter_stats` and `bowler_stats`:
+
+| `axis` | `axis_value` |
+| --- | --- |
+| `career` | `all` |
+| `season` | Edition year, such as `2024` |
+| `phase` | `powerplay`, `middle`, `death`, or `super_over` |
+| `venue` | Canonical ground |
+| `opposition` | Opposing franchise |
+| `batting_position` | `1` through `11`, batting only |
+
+Super overs are excluded from every axis except `phase = 'super_over'`.
+
+## Situation cuts
+
+These sit under the scorecards. The definitions also live in the `metrics` table.
+
+| # | Cut | Where it sits |
 | --- | --- | --- |
-| 1 | Phase of play | `deliveries.phase`, `batter_phase_career`, `bowler_phase_career` |
+| 1 | Phase of play | `deliveries.phase`, `batter_stats` where `axis = 'phase'` |
 | 2 | Setting or chasing, and required rate | `deliveries.rrr_band`, `batter_pressure` |
 | 3 | Wickets in hand | `deliveries.wickets_band`, `batter_pressure` |
-| 4 | Batting position | `batting_innings`, `batter_position` |
-| 5 | Venue | `matches.venue`, `venue_summary`, `venue_phase` |
+| 4 | Batting position | `batter_stats` where `axis = 'batting_position'` |
+| 5 | Venue | `batter_stats` / `bowler_stats` where `axis = 'venue'` |
 | 6 | Toss | `toss_summary` |
-| 7 | Opposition | `head_to_head`, `batter_vs_franchise`, `bowler_vs_franchise` |
-| 8 | Season | `matches.season_year` on every season-scoped view |
+| 7 | Opposition | `axis = 'opposition'`, plus `head_to_head` |
+| 8 | Season | `axis = 'season'` |
 
 ### Phase of play
 

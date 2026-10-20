@@ -1,3 +1,34 @@
+-- Batting and bowling scorecards. Each context is its own axis:
+-- career, season, phase, venue, opposition, and batting_position.
+-- Phase rows leave fifties, hundreds, and wicket hauls empty.
+
+-- Career batting: matches, runs, average, strike rate, runs per innings,
+-- fifties, hundreds, and fifties-plus scored at a strike rate of 150 or 200.
+SELECT player, matches, innings, runs, average, strike_rate, runs_per_innings,
+       fifties, hundreds, fifties_sr_150, fifties_sr_200
+FROM batter_career
+ORDER BY runs DESC;
+
+-- The same batting measures against one franchise.
+SELECT player, matches, runs, average, strike_rate, runs_per_innings,
+       fifties, hundreds, fifties_sr_150, fifties_sr_200
+FROM batter_stats
+WHERE axis = 'opposition' AND axis_value = 'Chennai Super Kings'
+ORDER BY runs DESC;
+
+-- Career bowling: matches, wickets, balls per wicket, economy,
+-- runs per wicket, four- and five-wicket hauls, wickets per match.
+SELECT player, matches, wickets, strike_rate, economy, average,
+       four_wicket_hauls, five_wicket_hauls, wickets_per_match
+FROM bowler_career
+ORDER BY wickets DESC;
+
+-- Bowling measures in the death overs. Haul columns are empty here.
+SELECT player, matches, wickets, strike_rate, economy, average, wickets_per_match
+FROM bowler_stats
+WHERE axis = 'phase' AND axis_value = 'death' AND balls >= 200
+ORDER BY economy;
+
 -- Contextual IPL queries. Open data/ipl.sqlite and run any statement.
 -- Rates treat a wide as not a ball faced. Bowler runs exclude byes,
 -- leg-byes, and penalty runs. Regulation winners ignore the eliminator.

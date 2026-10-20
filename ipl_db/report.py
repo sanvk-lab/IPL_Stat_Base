@@ -26,6 +26,27 @@ def main(argv: list[str] | None = None) -> None:
     print(f"{meta.get('match_count')} matches, {meta.get('delivery_count')} deliveries")
     print(meta.get("attribution", ""))
     print()
+    _section(conn, "Batting — career, most runs", """
+        SELECT player, matches, innings, runs, average, strike_rate, runs_per_innings,
+               fifties, hundreds, fifties_sr_150, fifties_sr_200
+        FROM batter_career
+        ORDER BY runs DESC
+        LIMIT ?
+    """, (args.limit,))
+    _section(conn, "Batting — fifties and hundreds scored at a strike rate of 150 or more", """
+        SELECT player, matches, runs, strike_rate, fifties, hundreds, fifties_sr_150, fifties_sr_200
+        FROM batter_career
+        WHERE fifties_sr_150 > 0
+        ORDER BY fifties_sr_150 DESC, fifties_sr_200 DESC
+        LIMIT ?
+    """, (args.limit,))
+    _section(conn, "Bowling — career, most wickets", """
+        SELECT player, matches, wickets, strike_rate, economy, average,
+               four_wicket_hauls, five_wicket_hauls, wickets_per_match
+        FROM bowler_career
+        ORDER BY wickets DESC
+        LIMIT ?
+    """, (args.limit,))
     _section(conn, "Phase of play — batting strike rate, minimum 200 balls", """
         SELECT player, phase, runs, balls, dismissals, strike_rate, average, boundary_percent
         FROM batter_phase_career

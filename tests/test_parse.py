@@ -186,6 +186,36 @@ class ParseTests(unittest.TestCase):
             venue = conn.execute("SELECT * FROM venue_summary").fetchone()
             self.assertEqual(venue["venue"], "Arun Jaitley Stadium, Delhi")
             self.assertEqual(venue["chases_won"], 1)
+            batting = conn.execute(
+                "SELECT * FROM batter_career WHERE player = 'A Batter'"
+            ).fetchone()
+            self.assertEqual(batting["matches"], 1)
+            self.assertEqual(batting["innings"], 1)
+            self.assertEqual(batting["runs"], 4)
+            self.assertEqual(batting["average"], 4)
+            self.assertEqual(batting["strike_rate"], 133.33)
+            self.assertEqual(batting["runs_per_innings"], 4)
+            self.assertEqual(batting["fifties"], 0)
+            self.assertEqual(batting["hundreds"], 0)
+            self.assertEqual(batting["fifties_sr_150"], 0)
+            bowling = conn.execute(
+                "SELECT * FROM bowler_career WHERE player = 'C Bowler'"
+            ).fetchone()
+            self.assertEqual(bowling["matches"], 1)
+            self.assertEqual(bowling["wickets"], 1)
+            self.assertEqual(bowling["strike_rate"], 3)
+            self.assertEqual(bowling["economy"], 10)
+            self.assertEqual(bowling["average"], 5)
+            self.assertEqual(bowling["four_wicket_hauls"], 0)
+            self.assertEqual(bowling["five_wicket_hauls"], 0)
+            self.assertEqual(bowling["wickets_per_match"], 1)
+            phase_haul = conn.execute(
+                """
+                SELECT four_wicket_hauls FROM bowler_stats
+                WHERE player = 'C Bowler' AND axis = 'phase' AND axis_value = 'death'
+                """
+            ).fetchone()
+            self.assertIsNone(phase_haul["four_wicket_hauls"])
 
 
 class BuiltDatabaseTests(unittest.TestCase):
@@ -230,11 +260,36 @@ class BuiltDatabaseTests(unittest.TestCase):
         self.assertEqual(negative, 0)
         kohli = conn.execute(
             """
-            SELECT SUM(runs) FROM batter_phase_career
-            WHERE player = 'V Kohli' AND phase != 'super_over'
+            SELECT runs, fifties, hundreds, fifties_sr_150, fifties_sr_200, matches, innings
+            FROM batter_career WHERE player = 'V Kohli'
+            """
+        ).fetchone()
+        self.assertGreater(kohli[0], 7000)
+        self.assertGreater(kohli[2], 0)
+        self.assertLessEqual(kohli[4], kohli[3])
+        self.assertLessEqual(kohli[3], kohli[1] + kohli[2])
+        self.assertGreater(kohli[5], kohli[6] - 5)
+        milestone = conn.execute(
+            """
+            SELECT COUNT(*) FROM batter_career
+            WHERE fifties_sr_200 > fifties_sr_150
+               OR fifties_sr_150 > fifties + hundreds
+               OR fifties < 0 OR hundreds < 0
             """
         ).fetchone()[0]
-        self.assertGreater(kohli, 7000)
+        self.assertEqual(milestone, 0)
+        haul = conn.execute(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM bowling_innings WHERE wickets = 4),
+                (SELECT COUNT(*) FROM bowling_innings WHERE wickets >= 5),
+                (SELECT COALESCE(SUM(four_wicket_hauls), 0) FROM bowler_career),
+                (SELECT COALESCE(SUM(five_wicket_hauls), 0) FROM bowler_career)
+            """
+        ).fetchone()
+        self.assertEqual(haul[0], haul[2])
+        self.assertEqual(haul[1], haul[3])
+        self.assertGreater(haul[1], 0)
 
 
 if __name__ == "__main__":
