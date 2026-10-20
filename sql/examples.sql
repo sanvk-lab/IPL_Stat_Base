@@ -23,6 +23,19 @@ FROM batter_advanced
 WHERE axis = 'team_total' AND player = 'V Kohli'
 ORDER BY axis_value;
 
+-- Strike rate over the first 10 balls, balls 11-30, and ball 31 onward.
+SELECT player, initial_balls, initial_strike_rate, turnover_balls, turnover_strike_rate,
+       after_30_balls, after_30_strike_rate
+FROM batter_spell_profile
+WHERE after_30_balls >= 100
+ORDER BY after_30_strike_rate DESC;
+
+-- One spell on its own.
+SELECT player, innings, runs, balls, dismissals, average, strike_rate
+FROM batter_spell
+WHERE spell = 'initial' AND balls >= 200
+ORDER BY strike_rate DESC;
+
 -- Career batting: matches, runs, average, strike rate, runs per innings,
 -- fifties, hundreds, and fifties-plus scored at a strike rate of 150 or 200.
 SELECT player, matches, innings, runs, average, strike_rate, runs_per_innings,

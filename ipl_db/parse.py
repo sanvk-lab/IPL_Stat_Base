@@ -121,6 +121,7 @@ def parse_match(data: dict[str, Any], match_id: int, source_file: str) -> dict[s
     deliveries = []
     wickets = []
     batting_rows = []
+    next_delivery_id = 0
     for index, innings in enumerate(data.get("innings") or [], start=1):
         parsed = _parse_innings(
             innings,
@@ -131,7 +132,9 @@ def parse_match(data: dict[str, Any], match_id: int, source_file: str) -> dict[s
             balls_per_over=balls_per_over,
             match_overs=scheduled,
             player_id=player_id,
+            next_delivery_id=next_delivery_id,
         )
+        next_delivery_id = parsed["next_delivery_id"]
         innings_rows.append(parsed["innings"])
         deliveries.extend(parsed["deliveries"])
         wickets.extend(parsed["wickets"])
@@ -170,6 +173,7 @@ def _parse_innings(
     balls_per_over: int,
     match_overs: int,
     player_id,
+    next_delivery_id: int = 0,
 ) -> dict[str, Any]:
     batting_team = innings.get("team")
     if batting_team == team_a:
@@ -204,7 +208,7 @@ def _parse_innings(
     partnership = 0
     delivery_rows = []
     wicket_rows = []
-    local_id = 0
+    local_id = next_delivery_id
 
     for over in innings.get("overs") or []:
         over_number = int(over.get("over", 0)) + 1
@@ -388,6 +392,7 @@ def _parse_innings(
         "deliveries": delivery_rows,
         "wickets": wicket_rows,
         "batting_innings": list(cards.values()),
+        "next_delivery_id": local_id,
     }
 
 

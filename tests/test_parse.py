@@ -264,6 +264,34 @@ class ParseTests(unittest.TestCase):
                 """
             ).fetchone()
             self.assertEqual(band["axis_value"], "170_or_below")
+            spell = conn.execute(
+                """
+                SELECT spell, runs, balls, dismissals, strike_rate, average
+                FROM batter_spell
+                WHERE player = 'A Batter'
+                ORDER BY spell
+                """
+            ).fetchall()
+            self.assertEqual(len(spell), 1)
+            self.assertEqual(spell[0]["spell"], "initial")
+            self.assertEqual(spell[0]["runs"], 4)
+            self.assertEqual(spell[0]["balls"], 3)
+            self.assertEqual(spell[0]["dismissals"], 1)
+            self.assertEqual(spell[0]["strike_rate"], 133.33)
+            self.assertEqual(spell[0]["average"], 4)
+            linked = conn.execute(
+                """
+                SELECT pb.full_name AS batter, po.full_name AS out_player, d.innings_number, d.phase
+                FROM delivery_wickets AS w
+                JOIN deliveries AS d ON d.delivery_id = w.delivery_id
+                JOIN players AS pb ON pb.player_id = d.batter_id
+                JOIN players AS po ON po.player_id = w.player_out_id
+                """
+            ).fetchone()
+            self.assertEqual(linked["batter"], "A Batter")
+            self.assertEqual(linked["out_player"], "A Batter")
+            self.assertEqual(linked["innings_number"], 1)
+            self.assertEqual(linked["phase"], "death")
 
 
 class BuiltDatabaseTests(unittest.TestCase):
@@ -372,6 +400,68 @@ class BuiltDatabaseTests(unittest.TestCase):
         self.assertAlmostEqual(relative[2], round(relative[0] - relative[1], 2), places=2)
         self.assertAlmostEqual(relative[3], round(relative[0] / relative[1], 2), places=2)
         self.assertAlmostEqual(relative[6], round(relative[4] - relative[5], 2), places=2)
+        spell_runs = conn.execute(
+            """
+            SELECT
+                (SELECT runs FROM batter_career WHERE player = 'V Kohli'),
+                (SELECT SUM(runs) FROM batter_spell WHERE player = 'V Kohli'),
+                (SELECT SUM(balls) FROM batter_spell WHERE player = 'V Kohli'),
+                (SELECT SUM(CASE WHEN wide_runs = 0 THEN 1 ELSE 0 END)
+                   FROM deliveries AS d
+                   JOIN players AS p ON p.player_id = d.batter_id
+                   WHERE p.full_name = 'V Kohli' AND d.is_super_over = 0)
+            """
+        ).fetchone()
+        self.assertEqual(spell_runs[0], spell_runs[1])
+        self.assertEqual(spell_runs[2], spell_runs[3])
+        overflow = conn.execute(
+            """
+            WITH faced AS (
+                SELECT
+                    match_id,
+                    innings_number,
+                    batter_id,
+                    SUM(1) OVER (
+                        PARTITION BY match_id, innings_number, batter_id
+                        ORDER BY delivery_id
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                    ) AS ball_in_innings
+                FROM deliveries
+                WHERE is_super_over = 0 AND wide_runs = 0
+            )
+            SELECT COUNT(*) FROM (
+                SELECT match_id, innings_number, batter_id
+                FROM faced
+                WHERE ball_in_innings <= 10
+                GROUP BY match_id, innings_number, batter_id
+                HAVING COUNT(*) > 10
+            )
+            """
+        ).fetchone()[0]
+        self.assertEqual(overflow, 0)
+        spells = {row[0] for row in conn.execute("SELECT DISTINCT spell FROM batter_spell")}
+        self.assertEqual(spells, {"initial", "turnover", "after_30"})
+        misplaced = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM delivery_wickets AS w
+            JOIN deliveries AS d ON d.delivery_id = w.delivery_id
+            WHERE w.kind IN ('bowled', 'caught', 'caught and bowled', 'lbw', 'stumped', 'hit wicket')
+              AND w.player_out_id != d.batter_id
+            """
+        ).fetchone()[0]
+        self.assertEqual(misplaced, 0)
+        spell_outs = conn.execute(
+            """
+            SELECT
+                (SELECT SUM(dismissals) FROM batter_spell WHERE player = 'V Kohli'),
+                (SELECT SUM(CASE WHEN dismissal_kind IS NOT NULL THEN 1 ELSE 0 END)
+                   FROM batting_innings AS b
+                   JOIN players AS p ON p.player_id = b.player_id
+                   WHERE p.full_name = 'V Kohli' AND b.is_super_over = 0)
+            """
+        ).fetchone()
+        self.assertEqual(spell_outs[0], spell_outs[1])
         bowl_split = conn.execute(
             """
             SELECT

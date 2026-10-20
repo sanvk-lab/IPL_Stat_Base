@@ -1168,3 +1168,136 @@ SELECT
     ) AS average_vs_team
 FROM grouped AS g
 JOIN players AS p ON p.player_id = g.player_id;
+
+-- Innings spells. A delivery is a ball faced: wides do not count.
+-- initial is balls 1-10, turnover is 11-30, after_30 is ball 31 onward.
+-- A dismissal on a ball the batter did not face, such as a non-striker
+-- run out, is charged to the spell of the next ball they would have faced.
+
+CREATE VIEW batter_spell AS
+WITH faced AS MATERIALIZED (
+    SELECT
+        d.delivery_id,
+        d.match_id,
+        d.innings_number,
+        d.batter_id AS player_id,
+        d.batter_runs AS runs,
+        SUM(1) OVER (
+            PARTITION BY d.match_id, d.innings_number, d.batter_id
+            ORDER BY d.delivery_id
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS ball_in_innings
+    FROM deliveries AS d
+    WHERE d.is_super_over = 0 AND d.wide_runs = 0
+),
+scored AS (
+    SELECT
+        player_id,
+        CASE
+            WHEN ball_in_innings <= 10 THEN 'initial'
+            WHEN ball_in_innings <= 30 THEN 'turnover'
+            ELSE 'after_30'
+        END AS spell,
+        COUNT(DISTINCT printf('%s-%s', match_id, innings_number)) AS innings,
+        SUM(runs) AS runs,
+        COUNT(*) AS balls
+    FROM faced
+    GROUP BY player_id, spell
+),
+outs_on_ball AS (
+    SELECT
+        f.player_id,
+        CASE
+            WHEN f.ball_in_innings <= 10 THEN 'initial'
+            WHEN f.ball_in_innings <= 30 THEN 'turnover'
+            ELSE 'after_30'
+        END AS spell
+    FROM delivery_wickets AS w
+    JOIN faced AS f
+        ON f.delivery_id = w.delivery_id AND f.player_id = w.player_out_id
+    WHERE w.kind != 'retired hurt'
+),
+outs_off_ball AS (
+    SELECT
+        w.player_out_id AS player_id,
+        CASE
+            WHEN COALESCE((
+                SELECT MAX(f.ball_in_innings)
+                FROM faced AS f
+                WHERE f.match_id = d.match_id
+                  AND f.innings_number = d.innings_number
+                  AND f.player_id = w.player_out_id
+                  AND f.delivery_id < d.delivery_id
+            ), 0) < 10 THEN 'initial'
+            WHEN COALESCE((
+                SELECT MAX(f.ball_in_innings)
+                FROM faced AS f
+                WHERE f.match_id = d.match_id
+                  AND f.innings_number = d.innings_number
+                  AND f.player_id = w.player_out_id
+                  AND f.delivery_id < d.delivery_id
+            ), 0) < 30 THEN 'turnover'
+            ELSE 'after_30'
+        END AS spell
+    FROM delivery_wickets AS w
+    JOIN deliveries AS d ON d.delivery_id = w.delivery_id
+    WHERE w.kind != 'retired hurt'
+      AND d.is_super_over = 0
+      AND NOT EXISTS (
+          SELECT 1 FROM faced AS f
+          WHERE f.delivery_id = d.delivery_id AND f.player_id = w.player_out_id
+      )
+),
+dismissed AS (
+    SELECT player_id, spell, COUNT(*) AS dismissals
+    FROM (
+        SELECT player_id, spell FROM outs_on_ball
+        UNION ALL
+        SELECT player_id, spell FROM outs_off_ball
+    )
+    GROUP BY player_id, spell
+),
+keys AS (
+    SELECT player_id, spell FROM scored
+    UNION
+    SELECT player_id, spell FROM dismissed
+)
+SELECT
+    p.full_name AS player,
+    k.player_id,
+    k.spell,
+    COALESCE(s.innings, 0) AS innings,
+    COALESCE(s.runs, 0) AS runs,
+    COALESCE(s.balls, 0) AS balls,
+    COALESCE(d.dismissals, 0) AS dismissals,
+    ROUND(1.0 * COALESCE(s.runs, 0) / NULLIF(d.dismissals, 0), 2) AS average,
+    ROUND(100.0 * COALESCE(s.runs, 0) / NULLIF(s.balls, 0), 2) AS strike_rate
+FROM keys AS k
+JOIN players AS p ON p.player_id = k.player_id
+LEFT JOIN scored AS s ON s.player_id = k.player_id AND s.spell = k.spell
+LEFT JOIN dismissed AS d ON d.player_id = k.player_id AND d.spell = k.spell;
+
+CREATE VIEW batter_spell_profile AS
+SELECT
+    player,
+    player_id,
+    MAX(CASE WHEN spell = 'initial' THEN innings END) AS initial_innings,
+    MAX(CASE WHEN spell = 'initial' THEN runs END) AS initial_runs,
+    MAX(CASE WHEN spell = 'initial' THEN balls END) AS initial_balls,
+    MAX(CASE WHEN spell = 'initial' THEN dismissals END) AS initial_dismissals,
+    MAX(CASE WHEN spell = 'initial' THEN average END) AS initial_average,
+    MAX(CASE WHEN spell = 'initial' THEN strike_rate END) AS initial_strike_rate,
+    MAX(CASE WHEN spell = 'turnover' THEN innings END) AS turnover_innings,
+    MAX(CASE WHEN spell = 'turnover' THEN runs END) AS turnover_runs,
+    MAX(CASE WHEN spell = 'turnover' THEN balls END) AS turnover_balls,
+    MAX(CASE WHEN spell = 'turnover' THEN dismissals END) AS turnover_dismissals,
+    MAX(CASE WHEN spell = 'turnover' THEN average END) AS turnover_average,
+    MAX(CASE WHEN spell = 'turnover' THEN strike_rate END) AS turnover_strike_rate,
+    MAX(CASE WHEN spell = 'after_30' THEN innings END) AS after_30_innings,
+    MAX(CASE WHEN spell = 'after_30' THEN runs END) AS after_30_runs,
+    MAX(CASE WHEN spell = 'after_30' THEN balls END) AS after_30_balls,
+    MAX(CASE WHEN spell = 'after_30' THEN dismissals END) AS after_30_dismissals,
+    MAX(CASE WHEN spell = 'after_30' THEN average END) AS after_30_average,
+    MAX(CASE WHEN spell = 'after_30' THEN strike_rate END) AS after_30_strike_rate
+FROM batter_spell
+GROUP BY player, player_id;

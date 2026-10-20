@@ -123,6 +123,8 @@ def build(json_dir: Path, out_path: Path) -> sqlite3.Connection:
         id_map = {}
         for delivery in parsed["deliveries"]:
             local_id = delivery["delivery_id"]
+            if local_id in id_map:
+                raise ValueError(f"Duplicate delivery id {local_id} in {path.name}")
             delivery["delivery_id"] = next_delivery_id
             id_map[local_id] = next_delivery_id
             next_delivery_id += 1

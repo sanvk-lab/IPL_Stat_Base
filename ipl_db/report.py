@@ -64,6 +64,15 @@ def main(argv: list[str] | None = None) -> None:
         ORDER BY strike_rate DESC
         LIMIT ?
     """, (args.limit,))
+    _section(conn, "Batting — strike rate in the first 10 balls, balls 11-30, and after 30", """
+        SELECT player, initial_balls, initial_strike_rate,
+               turnover_balls, turnover_strike_rate,
+               after_30_balls, after_30_strike_rate
+        FROM batter_spell_profile
+        WHERE initial_balls >= 100 AND turnover_balls >= 80 AND after_30_balls >= 60
+        ORDER BY after_30_strike_rate DESC
+        LIMIT ?
+    """, (args.limit,))
     _section(conn, "Bowling — career, most wickets", """
         SELECT player, matches, wickets, strike_rate, economy, average,
                four_wicket_hauls, five_wicket_hauls, wickets_per_match

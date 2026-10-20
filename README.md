@@ -71,6 +71,18 @@ On every row:
 
 The team rates use the teammates' runs and balls, so a batter is not compared with his own innings. Extras are in the 170 cutoff and out of both strike rates. Super overs are excluded.
 
+### Innings spells
+
+`batter_spell` puts each ball faced into one of three categories. `batter_spell_profile` puts the three strike rates on one row.
+
+| `spell` | Balls faced in the innings |
+| --- | --- |
+| `initial` | 1–10 |
+| `turnover` | 11–30 |
+| `after_30` | 31 onward |
+
+A wide is not a delivery. Each row has runs, balls, dismissals, average, and strike rate for that spell. Super overs are excluded.
+
 ## Bowling
 
 `bowler_career` is the career line. `bowler_stats` carries the same axes except batting position.
