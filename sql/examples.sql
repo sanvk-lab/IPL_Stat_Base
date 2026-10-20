@@ -30,6 +30,21 @@ FROM batter_spell_profile
 WHERE after_30_balls >= 100
 ORDER BY after_30_strike_rate DESC;
 
+-- Batting at each ground: runs, average, strike rate, highest score,
+-- and the simulated chance of scoring there next season.
+SELECT player, venue, ground_category, runs, average, strike_rate, highest,
+       prob_scores_next_season, expected_runs_next_season
+FROM batter_by_ground
+WHERE player = 'V Kohli'
+ORDER BY runs DESC;
+
+-- Bowling at each ground, including economy and the chance of a wicket next season.
+SELECT player, venue, ground_category, wickets, average, strike_rate, economy,
+       prob_wicket_next_season, expected_wickets_next_season
+FROM bowler_by_ground
+WHERE player = 'JJ Bumrah'
+ORDER BY wickets DESC;
+
 -- One spell on its own.
 SELECT player, innings, runs, balls, dismissals, average, strike_rate
 FROM batter_spell

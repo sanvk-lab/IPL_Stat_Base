@@ -83,6 +83,25 @@ The team rates use the teammates' runs and balls, so a batter is not compared wi
 
 A wide is not a delivery. Each row has runs, balls, dismissals, average, and strike rate for that spell. Super overs are excluded.
 
+### By ground
+
+`batter_by_ground` and `bowler_by_ground` are the ground categories. Each ground also carries `ground_category` from its average first-innings total: `high_scoring` at 170 or more, `mid_scoring` from 155 up to 170, and `low_scoring` below 155.
+
+| Batting column | Meaning |
+| --- | --- |
+| `runs`, `average`, `strike_rate` | Career line at that ground. |
+| `highest` | Highest innings score there. |
+| `prob_scores_next_season` | Share of 2,000 seeded simulations in which a typical season at that ground produces at least one run. |
+| `expected_runs_next_season` | Mean simulated runs for that season. |
+
+| Bowling column | Meaning |
+| --- | --- |
+| `wickets`, `average`, `strike_rate`, `economy` | Career line at that ground. Economy is bowler runs per over. |
+| `prob_wicket_next_season` | Share of the same simulations in which the season produces at least one wicket. |
+| `expected_wickets_next_season` | Mean simulated wickets. |
+
+The draw resamples that player's own innings at the ground, once for each innings they usually play there in a season. The seed is fixed, so a rebuild repeats the probabilities. `bowler_advanced` now includes `economy` as well.
+
 ## Bowling
 
 `bowler_career` is the career line. `bowler_stats` carries the same axes except batting position.

@@ -292,6 +292,40 @@ class ParseTests(unittest.TestCase):
             self.assertEqual(linked["out_player"], "A Batter")
             self.assertEqual(linked["innings_number"], 1)
             self.assertEqual(linked["phase"], "death")
+            ground = conn.execute(
+                """
+                SELECT runs, highest, strike_rate, average, ground_category,
+                       prob_scores_next_season, expected_runs_next_season
+                FROM batter_by_ground
+                WHERE player = 'A Batter'
+                """
+            ).fetchone()
+            self.assertEqual(ground["runs"], 4)
+            self.assertEqual(ground["highest"], 4)
+            self.assertEqual(ground["strike_rate"], 133.33)
+            self.assertEqual(ground["average"], 4)
+            self.assertEqual(ground["ground_category"], "low_scoring")
+            self.assertEqual(ground["prob_scores_next_season"], 1)
+            self.assertEqual(ground["expected_runs_next_season"], 4)
+            bowl_ground = conn.execute(
+                """
+                SELECT wickets, economy, strike_rate, average, prob_wicket_next_season
+                FROM bowler_by_ground
+                WHERE player = 'C Bowler'
+                """
+            ).fetchone()
+            self.assertEqual(bowl_ground["wickets"], 1)
+            self.assertEqual(bowl_ground["economy"], 10)
+            self.assertEqual(bowl_ground["strike_rate"], 3)
+            self.assertEqual(bowl_ground["average"], 5)
+            self.assertEqual(bowl_ground["prob_wicket_next_season"], 1)
+            advanced_economy = conn.execute(
+                """
+                SELECT economy FROM bowler_advanced
+                WHERE player = 'C Bowler' AND axis = 'innings' AND axis_value = '1'
+                """
+            ).fetchone()
+            self.assertEqual(advanced_economy["economy"], 10)
 
 
 class BuiltDatabaseTests(unittest.TestCase):
@@ -462,6 +496,30 @@ class BuiltDatabaseTests(unittest.TestCase):
             """
         ).fetchone()
         self.assertEqual(spell_outs[0], spell_outs[1])
+        ground_ok = conn.execute(
+            """
+            SELECT COUNT(*) FROM batter_ground
+            WHERE prob_scores_next_season < 0
+               OR prob_scores_next_season > 1
+               OR highest > runs
+               OR ground_category NOT IN ('high_scoring', 'mid_scoring', 'low_scoring')
+            """
+        ).fetchone()[0]
+        self.assertEqual(ground_ok, 0)
+        bowl_ok = conn.execute(
+            """
+            SELECT COUNT(*) FROM bowler_ground
+            WHERE prob_wicket_next_season < 0
+               OR prob_wicket_next_season > 1
+               OR economy IS NOT NULL AND balls > 0
+                  AND ABS(economy - ROUND(6.0 * runs / balls, 2)) > 0.02
+            """
+        ).fetchone()[0]
+        self.assertEqual(bowl_ok, 0)
+        self.assertGreater(
+            conn.execute("SELECT COUNT(*) FROM batter_by_ground WHERE player = 'V Kohli'").fetchone()[0],
+            5,
+        )
         bowl_split = conn.execute(
             """
             SELECT

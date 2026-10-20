@@ -73,6 +73,14 @@ def main(argv: list[str] | None = None) -> None:
         ORDER BY after_30_strike_rate DESC
         LIMIT ?
     """, (args.limit,))
+    _section(conn, "Batting — by ground, most runs at high-scoring venues", """
+        SELECT player, venue, runs, average, strike_rate, highest,
+               prob_scores_next_season, expected_runs_next_season
+        FROM batter_by_ground
+        WHERE ground_category = 'high_scoring' AND innings >= 8
+        ORDER BY runs DESC
+        LIMIT ?
+    """, (args.limit,))
     _section(conn, "Bowling — career, most wickets", """
         SELECT player, matches, wickets, strike_rate, economy, average,
                four_wicket_hauls, five_wicket_hauls, wickets_per_match
@@ -101,6 +109,14 @@ def main(argv: list[str] | None = None) -> None:
                team_strike_rate, sr_above_team
         FROM bowler_advanced
         WHERE axis = 'team_total' AND axis_value = 'above_200' AND balls >= 120
+        ORDER BY wickets DESC
+        LIMIT ?
+    """, (args.limit,))
+    _section(conn, "Bowling — by ground, most wickets at high-scoring venues", """
+        SELECT player, venue, wickets, average, strike_rate, economy,
+               prob_wicket_next_season, expected_wickets_next_season
+        FROM bowler_by_ground
+        WHERE ground_category = 'high_scoring' AND innings >= 8
         ORDER BY wickets DESC
         LIMIT ?
     """, (args.limit,))

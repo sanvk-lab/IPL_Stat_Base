@@ -1141,6 +1141,7 @@ SELECT
     g.runs,
     ROUND(1.0 * g.balls / NULLIF(g.wickets, 0), 2) AS strike_rate,
     ROUND(1.0 * g.runs / NULLIF(g.wickets, 0), 2) AS average,
+    ROUND(6.0 * g.runs / NULLIF(g.balls, 0), 2) AS economy,
     g.others_balls AS team_balls,
     g.others_runs AS team_runs,
     g.others_wickets AS team_wickets,
@@ -1301,3 +1302,81 @@ SELECT
     MAX(CASE WHEN spell = 'after_30' THEN strike_rate END) AS after_30_strike_rate
 FROM batter_spell
 GROUP BY player, player_id;
+
+-- One row per player per ground. Probabilities are a seeded bootstrap of
+-- a typical season at that ground, so the same database rebuilds the
+-- same values. ground_category comes from the ground's average
+-- first-innings total: high_scoring at 170 or more, mid_scoring from
+-- 155 up to 170, low_scoring below 155.
+
+CREATE TABLE batter_ground (
+    player_id TEXT NOT NULL,
+    venue TEXT NOT NULL,
+    innings INTEGER NOT NULL,
+    runs INTEGER NOT NULL,
+    balls INTEGER NOT NULL,
+    dismissals INTEGER NOT NULL,
+    highest INTEGER NOT NULL,
+    average REAL,
+    strike_rate REAL,
+    ground_average_total REAL,
+    ground_category TEXT,
+    prob_scores_next_season REAL NOT NULL,
+    expected_runs_next_season REAL NOT NULL,
+    PRIMARY KEY (player_id, venue)
+);
+
+CREATE TABLE bowler_ground (
+    player_id TEXT NOT NULL,
+    venue TEXT NOT NULL,
+    innings INTEGER NOT NULL,
+    balls INTEGER NOT NULL,
+    runs INTEGER NOT NULL,
+    wickets INTEGER NOT NULL,
+    average REAL,
+    strike_rate REAL,
+    economy REAL,
+    ground_average_total REAL,
+    ground_category TEXT,
+    prob_wicket_next_season REAL NOT NULL,
+    expected_wickets_next_season REAL NOT NULL,
+    PRIMARY KEY (player_id, venue)
+);
+
+CREATE VIEW batter_by_ground AS
+SELECT
+    p.full_name AS player,
+    g.player_id,
+    g.venue,
+    v.city,
+    g.ground_category,
+    g.ground_average_total,
+    g.innings,
+    g.runs,
+    g.highest,
+    g.average,
+    g.strike_rate,
+    g.prob_scores_next_season,
+    g.expected_runs_next_season
+FROM batter_ground AS g
+JOIN players AS p ON p.player_id = g.player_id
+LEFT JOIN venues AS v ON v.venue = g.venue;
+
+CREATE VIEW bowler_by_ground AS
+SELECT
+    p.full_name AS player,
+    g.player_id,
+    g.venue,
+    v.city,
+    g.ground_category,
+    g.ground_average_total,
+    g.innings,
+    g.wickets,
+    g.average,
+    g.strike_rate,
+    g.economy,
+    g.prob_wicket_next_season,
+    g.expected_wickets_next_season
+FROM bowler_ground AS g
+JOIN players AS p ON p.player_id = g.player_id
+LEFT JOIN venues AS v ON v.venue = g.venue;

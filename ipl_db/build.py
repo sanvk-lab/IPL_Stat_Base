@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .constants import METRICS, SOURCE_LICENSE, SOURCE_URL
 from .parse import load_match
+from .project import SIMULATIONS, populate_ground_projections
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = Path(__file__).with_name("schema.sql")
@@ -154,6 +155,13 @@ def build(json_dir: Path, out_path: Path) -> sqlite3.Connection:
         "season_max": str(seasons[1]),
         "attribution": "Match data © Cricsheet (https://cricsheet.org/), licensed under ODC-By.",
     }
+    populate_ground_projections(conn)
+    meta["ground_projection_sims"] = str(SIMULATIONS)
+    meta["ground_projection"] = (
+        "Seeded bootstrap of a typical season at each ground. "
+        "Batter probability is the share of simulations with at least one run. "
+        "Bowler probability is the share with at least one wicket."
+    )
     conn.executemany("INSERT INTO dataset_meta (key, value) VALUES (?, ?)", meta.items())
     conn.commit()
     conn.execute("VACUUM")
