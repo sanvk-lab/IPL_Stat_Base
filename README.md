@@ -51,6 +51,26 @@ More queries are in `sql/examples.sql`.
 
 A fifty belongs to the innings, so `fifties`, `hundreds`, `fifties_sr_150`, and `fifties_sr_200` are empty on the phase axis.
 
+### Advanced batting
+
+`batter_advanced` splits the same batter two more ways.
+
+| `axis` | `axis_value` | What it is |
+| --- | --- | --- |
+| `innings` | `1` or `2` | Their side batted first, or chased |
+| `team_total` | `above_170` or `170_or_below` | Their side's scoreboard total was above 170, or 170 or less |
+
+On every row:
+
+| Column | Meaning |
+| --- | --- |
+| `strike_rate`, `average`, `runs_per_innings` | The batter in that split. Average is runs per dismissal. Runs per innings keeps not-outs in the count. |
+| `team_strike_rate`, `team_average` | The rest of the side in those same innings, with this batter removed. |
+| `sr_above_team`, `average_above_team` | Batter minus the rest of the side. Positive means faster, or a higher average, than teammates. |
+| `sr_vs_team`, `average_vs_team` | Batter divided by the rest of the side. `1.00` matches the teammates. |
+
+The team rates use the teammates' runs and balls, so a batter is not compared with his own innings. Extras are in the 170 cutoff and out of both strike rates. Super overs are excluded.
+
 ## Bowling
 
 `bowler_career` is the career line. `bowler_stats` carries the same axes except batting position.

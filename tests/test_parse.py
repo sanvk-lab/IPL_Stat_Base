@@ -216,6 +216,29 @@ class ParseTests(unittest.TestCase):
                 """
             ).fetchone()
             self.assertIsNone(phase_haul["four_wicket_hauls"])
+            first = conn.execute(
+                """
+                SELECT runs, balls, strike_rate, average, team_balls, team_strike_rate,
+                       sr_vs_team, runs_per_innings
+                FROM batter_advanced
+                WHERE player = 'A Batter' AND axis = 'innings' AND axis_value = '1'
+                """
+            ).fetchone()
+            self.assertEqual(first["runs"], 4)
+            self.assertEqual(first["balls"], 3)
+            self.assertEqual(first["strike_rate"], 133.33)
+            self.assertEqual(first["average"], 4)
+            self.assertEqual(first["runs_per_innings"], 4)
+            self.assertEqual(first["team_balls"], 0)
+            self.assertIsNone(first["team_strike_rate"])
+            self.assertIsNone(first["sr_vs_team"])
+            band = conn.execute(
+                """
+                SELECT axis_value FROM batter_advanced
+                WHERE player = 'A Batter' AND axis = 'team_total'
+                """
+            ).fetchone()
+            self.assertEqual(band["axis_value"], "170_or_below")
 
 
 class BuiltDatabaseTests(unittest.TestCase):
@@ -290,6 +313,40 @@ class BuiltDatabaseTests(unittest.TestCase):
         self.assertEqual(haul[0], haul[2])
         self.assertEqual(haul[1], haul[3])
         self.assertGreater(haul[1], 0)
+        split = conn.execute(
+            """
+            SELECT
+                (SELECT runs FROM batter_career WHERE player = 'V Kohli'),
+                (SELECT SUM(runs) FROM batter_advanced
+                  WHERE player = 'V Kohli' AND axis = 'innings'),
+                (SELECT SUM(runs) FROM batter_advanced
+                  WHERE player = 'V Kohli' AND axis = 'team_total')
+            """
+        ).fetchone()
+        self.assertEqual(split[0], split[1])
+        self.assertEqual(split[0], split[2])
+        bands = {row[0] for row in conn.execute("SELECT DISTINCT total_band FROM batter_innings_context")}
+        self.assertEqual(bands, {"above_170", "170_or_below"})
+        leaked = conn.execute(
+            """
+            SELECT COUNT(*) FROM batter_innings_context
+            WHERE (team_total > 170 AND total_band != 'above_170')
+               OR (team_total <= 170 AND total_band != '170_or_below')
+               OR others_runs < 0 OR others_balls < 0 OR others_dismissals < 0
+            """
+        ).fetchone()[0]
+        self.assertEqual(leaked, 0)
+        relative = conn.execute(
+            """
+            SELECT strike_rate, team_strike_rate, sr_above_team, sr_vs_team,
+                   average, team_average, average_above_team
+            FROM batter_advanced
+            WHERE player = 'V Kohli' AND axis = 'innings' AND axis_value = '1'
+            """
+        ).fetchone()
+        self.assertAlmostEqual(relative[2], round(relative[0] - relative[1], 2), places=2)
+        self.assertAlmostEqual(relative[3], round(relative[0] / relative[1], 2), places=2)
+        self.assertAlmostEqual(relative[6], round(relative[4] - relative[5], 2), places=2)
 
 
 if __name__ == "__main__":

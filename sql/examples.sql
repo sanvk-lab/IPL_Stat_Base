@@ -2,6 +2,27 @@
 -- career, season, phase, venue, opposition, and batting_position.
 -- Phase rows leave fifties, hundreds, and wicket hauls empty.
 
+-- First-innings strike rate and average against the rest of the side.
+-- sr_above_team is batter strike rate minus teammates. sr_vs_team is the ratio.
+SELECT player, matches, innings, runs, strike_rate, team_strike_rate, sr_above_team, sr_vs_team,
+       average, team_average, average_above_team, average_vs_team, runs_per_innings
+FROM batter_advanced
+WHERE axis = 'innings' AND axis_value = '1' AND balls >= 200
+ORDER BY sr_above_team DESC;
+
+-- Same comparison while chasing.
+SELECT player, runs, strike_rate, team_strike_rate, sr_above_team, average, team_average, average_above_team
+FROM batter_advanced
+WHERE axis = 'innings' AND axis_value = '2' AND balls >= 200
+ORDER BY sr_above_team DESC;
+
+-- Strike rate, average, and runs per innings when the side's total is above 170,
+-- and when it is 170 or less.
+SELECT player, axis_value, runs, balls, strike_rate, average, runs_per_innings
+FROM batter_advanced
+WHERE axis = 'team_total' AND player = 'V Kohli'
+ORDER BY axis_value;
+
 -- Career batting: matches, runs, average, strike rate, runs per innings,
 -- fifties, hundreds, and fifties-plus scored at a strike rate of 150 or 200.
 SELECT player, matches, innings, runs, average, strike_rate, runs_per_innings,

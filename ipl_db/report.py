@@ -40,6 +40,30 @@ def main(argv: list[str] | None = None) -> None:
         ORDER BY fifties_sr_150 DESC, fifties_sr_200 DESC
         LIMIT ?
     """, (args.limit,))
+    _section(conn, "Batting — first innings strike rate versus the rest of the side, minimum 250 balls", """
+        SELECT player, runs, strike_rate, team_strike_rate, sr_above_team, sr_vs_team,
+               average, team_average, average_above_team, runs_per_innings
+        FROM batter_advanced
+        WHERE axis = 'innings' AND axis_value = '1' AND balls >= 250
+        ORDER BY sr_above_team DESC
+        LIMIT ?
+    """, (args.limit,))
+    _section(conn, "Batting — chase strike rate versus the rest of the side, minimum 250 balls", """
+        SELECT player, runs, strike_rate, team_strike_rate, sr_above_team, sr_vs_team,
+               average, team_average, average_above_team, runs_per_innings
+        FROM batter_advanced
+        WHERE axis = 'innings' AND axis_value = '2' AND balls >= 250
+        ORDER BY sr_above_team DESC
+        LIMIT ?
+    """, (args.limit,))
+    _section(conn, "Batting — innings totals above 170, minimum 200 balls", """
+        SELECT player, runs, strike_rate, average, runs_per_innings,
+               team_strike_rate, sr_above_team
+        FROM batter_advanced
+        WHERE axis = 'team_total' AND axis_value = 'above_170' AND balls >= 200
+        ORDER BY strike_rate DESC
+        LIMIT ?
+    """, (args.limit,))
     _section(conn, "Bowling — career, most wickets", """
         SELECT player, matches, wickets, strike_rate, economy, average,
                four_wicket_hauls, five_wicket_hauls, wickets_per_match
